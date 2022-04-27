@@ -3,18 +3,23 @@ set -ex
 
 echo "Trigger Paths: $TRIGGER_PATHS"
 
-if [ -z "$BITRISEIO_GIT_BRANCH_DEST" ]
+brew install grep
+
+git fetch origin "$BITRISE_GIT_BRANCH"
+
+# Get previous merge commit
+DIFF_COMMIT="$(git rev-list --merges --max-count=1 origin/${BITRISE_GIT_BRANCH})"
+
+if [ -z "$DIFF_COMMIT" ]
 then
-    echo "No PR detected. Skipping selective builds."
-    exit 0
+  echo "No previous merge commit detected. Skipping selective builds."
+  exit 0
 fi
 
-git fetch origin "$BITRISEIO_GIT_BRANCH_DEST" --depth 1
-
-DIFF_FILES="$(git diff --name-only origin/${BITRISEIO_GIT_BRANCH_DEST})"
+DIFF_FILES="$(git diff --name-only ${DIFF_COMMIT})"
 
 set +x
-PATH_PATTERN=$(ruby -e 'puts ENV["TRIGGER_PATHS"].strip.split("\n").map { |e| e.gsub("/", "\\/") }.join("|") ')
+PATH_PATTERN=$(ruby -e 'puts ENV["TRIGGER_PATHS"].strip.split("\n").map { |e| e.gsub("/", "\\") }.join("|") ')
 
 echo "PATH_PATTERN: $PATH_PATTERN"
 set -x
@@ -22,7 +27,7 @@ set -x
 check_app_diff ()
 {
     set +e
-    echo $DIFF_FILES | grep -E $1
+    echo $DIFF_FILES | ggrep -E $1
     exit_status=$?
     if [[ $exit_status = 1 ]]; then
       echo "No changes detected. Aborting build."
